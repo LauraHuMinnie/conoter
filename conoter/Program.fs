@@ -6,7 +6,7 @@ type Cell = {glyph: char; foreground: ConsoleColor; background: ConsoleColor}
 
 // Not sure about this being mutable.
 // TODO: Convert this to Map
-type Screen = Map<(int * int), Cell>
+type Screen = Map<int * int, Cell>
 let emptyScreen = Map.empty
 
 type Notes = list<string>
@@ -53,11 +53,6 @@ let renderNotes (screen: Screen) (notes: Notes) =
     
     go 0 notes screen
 
-        
- 
-
-
-
 
 let initState = {screen = emptyScreen; buffer = []; shouldQuit = false; mode = Tree}
 
@@ -78,46 +73,9 @@ let readKey () : KeyPress =
         withCtrl = k.Modifiers.HasFlag(ConsoleModifiers.Control)
     }
 
-
 [<EntryPoint>]
 let main argv =
     let s = renderNotes emptyScreen ["First note"; "And another one!"]
-    //putString s (3, 3) ConsoleColor.White ConsoleColor.DarkBlue "OK!" |> ignore
     do display s
     Console.ReadKey() |> ignore
     0
-(*
-
-type EditorMode = Text | Tree
-type Cell = {glyph: char; foreground: ConsoleColor; background: ConsoleColor}
-type State = {buffer: list<String>; shouldQuit: bool; mode: EditorMode}
-type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool; withShift: bool}
-
-let initState = {buffer = []; shouldQuit = false; mode = Tree}
-
-let processKey ({buffer=b} as s: State) key =
-    match key with
-    | { asChar = 'q' } -> { s with shouldQuit = true }
-    | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
-    | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
-    | { withCtrl = true } | { withAlt = true } -> s
-    | c -> { s with buffer = c.asChar.ToString() :: b }
-
-let readKey () : KeyPress =
-    let k = Console.ReadKey(true)
-    {
-        asChar = k.KeyChar; asEnum = k.Key;
-        withAlt = k.Modifiers.HasFlag(ConsoleModifiers.Alt);
-        withShift = k.Modifiers.HasFlag(ConsoleModifiers.Shift);
-        withCtrl = k.Modifiers.HasFlag(ConsoleModifiers.Control)
-    }
-
-[<EntryPoint>]
-let main argv =
-    Console.Title <- "Conoter"
-    let mutable state = initState
-    while not state.shouldQuit do
-        state <- readKey () |> processKey state 
-        printfn "buffer = %A" state.buffer
-    0
-*)
