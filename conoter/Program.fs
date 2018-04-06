@@ -6,7 +6,8 @@ type Cell = {glyph: char; foreground: ConsoleColor; background: ConsoleColor}
 
 // Not sure about this being mutable.
 // TODO: Convert this to Map
-type Screen = Dictionary<(int * int), Cell>
+type Screen = Map<(int * int), Cell>
+let emptyScreen = Map.empty
 
 type Notes = list<string>
 
@@ -19,17 +20,20 @@ let defaultForegroundColor = ConsoleColor.White
 let defaultCell = {glyph = ' '; foreground = defaultForegroundColor; background = defaultBackgroundColor}
 let consoleWidth = 80
 
-let putChar (s: Screen) pos cell = 
-    do s.[pos] <- cell
-
-let putString (s: Screen) (startX, startY) foreground background (string: String) =
+let putString (s: Screen) ((startX, startY) as startPos) foreground background (string: String) =
     let cellProto = {defaultCell with foreground = foreground; background = background}
 
-    for charIndex in 0 .. string.Length - 1 do
+    let getPosAndGlyph charIndex =
         let (yOffset, x) = Math.DivRem(charIndex + startX, consoleWidth - startX)
         let y = yOffset + startY
-        s.[(x, y)] <- {cellProto with glyph = string.[charIndex]}
+        ((x, y), string.[charIndex])
 
+    seq { 0 .. string.Length - 1 }
+        |> Seq.map getPosAndGlyph 
+        |> Seq.fold (fun (screen, _) (pos, c) -> 
+                        (Map.add pos {cellProto with glyph = c} screen, pos)) 
+                    (s, startPos)
+            
 let renderCell (x, y) cell =
     do 
         Console.SetCursorPosition(x, y)
@@ -37,14 +41,17 @@ let renderCell (x, y) cell =
         Console.BackgroundColor <- cell.background
         Console.Write(cell.glyph)
 
-let display = Dict.iter (fun (pos, cell) -> renderCell pos cell) 
+let display = Map.iter renderCell
 
 let renderNotes (screen: Screen) (notes: Notes) =
-    let mutable y = 0
-    while y < notes.Length && y < Console.WindowHeight do
-        putString screen (0, y) defaultForegroundColor defaultBackgroundColor <| " - " + notes.[y]
-        // TODO: Some notes might be multiline!
-        y <- y + 1
+    let rec go y notes screen = 
+        match notes with
+        | [] -> screen
+        | note::xs -> 
+            let (s, (_, y)) = putString screen (0, y) defaultForegroundColor defaultBackgroundColor (" - " + note)
+            go (y + 1) xs s
+    
+    go 0 notes screen
 
         
  
@@ -52,7 +59,7 @@ let renderNotes (screen: Screen) (notes: Notes) =
 
 
 
-let initState = {screen = new Screen(); buffer = []; shouldQuit = false; mode = Tree}
+let initState = {screen = emptyScreen; buffer = []; shouldQuit = false; mode = Tree}
 
 let processKey ({buffer=b} as s: State) key =
     match key with
@@ -71,11 +78,11 @@ let readKey () : KeyPress =
         withCtrl = k.Modifiers.HasFlag(ConsoleModifiers.Control)
     }
 
+
 [<EntryPoint>]
 let main argv =
-    let s = new Screen()
+    let s = renderNotes emptyScreen ["First note"; "And another one!"]
     //putString s (3, 3) ConsoleColor.White ConsoleColor.DarkBlue "OK!" |> ignore
-    renderNotes s ["First note"; "And another one!"]
     do display s
     Console.ReadKey() |> ignore
     0
