@@ -1,6 +1,11 @@
 ﻿open System
 open System.Collections.Generic
 open Utils
+open System.Diagnostics
+open System.IO
+open System.Linq
+open System.Linq
+open System.Linq
 
 type Cell = {glyph: char; foreground: ConsoleColor; background: ConsoleColor}
 
@@ -12,13 +17,18 @@ let emptyScreen = Map.empty
 type Notes = list<string>
 
 type EditorMode = Text | Tree
-type State = {screen: Screen; buffer: list<String>; shouldQuit: bool; mode: EditorMode}
+
+type State = {buffer: list<String>; notes: Notes; shouldQuit: bool; mode: EditorMode}
+let initState = {buffer = []; notes = ["Test note!"]; shouldQuit = false; mode = Tree}
+
 type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool; withShift: bool}
 
 let defaultBackgroundColor = ConsoleColor.Black
 let defaultForegroundColor = ConsoleColor.White
 let defaultCell = {glyph = ' '; foreground = defaultForegroundColor; background = defaultBackgroundColor}
-let consoleWidth = 80
+
+let consoleWidth = Console.WindowWidth
+let consoleHeight = Console.WindowHeight
 
 let putString (s: Screen) ((startX, startY) as startPos) foreground background (string: String) =
     let cellProto = {defaultCell with foreground = foreground; background = background}
@@ -34,16 +44,62 @@ let putString (s: Screen) ((startX, startY) as startPos) foreground background (
                         (Map.add pos {cellProto with glyph = c} screen, pos)) 
                     (s, startPos)
             
-let renderCell (x, y) cell =
+let renderCell pos cell =
     do 
-        Console.SetCursorPosition(x, y)
+        Console.SetCursorPosition pos
         Console.ForegroundColor <- cell.foreground
         Console.BackgroundColor <- cell.background
         Console.Write(cell.glyph)
 
-let display = Map.iter renderCell
+let rec chunkBy (f: 'a -> 'a -> bool) (ls: list<'a>) =
+    // for (=) [1; 1; 2; 3;] returns [1; 1]
+    let rec firstChunk (f2: 'a -> 'a -> bool) =
+        function 
+        | [] -> []
+        | [first] -> [first]
+        | first::rest ->
+            if f2 first (List.head rest) then
+                first::(firstChunk f2 rest)
+            else
+                [first]
+    
+    match firstChunk f ls with
+    | [] -> []
+    | c -> c::(chunkBy f (List.skip (List.length c) ls))
 
-let renderNotes (screen: Screen) (notes: Notes) =
+
+let out = new StreamWriter(Console.OpenStandardOutput())
+let display screen = 
+    do Console.Clear()
+    let needsFlush {foreground = fg1; background = bg1} {foreground = fg2; background = bg2} =
+        fg1 = fg2 && bg1 = bg2
+    
+    // iterate through coords between start and end pos and generate string to write
+    // set fg and bg, write string to out, flush it.
+    let renderChunk chunk =
+        let ((startX, startY), startCell) = List.head chunk
+        let ((endX, endY), _) = List.last chunk
+        let cellLookup = Map.ofList chunk
+
+        Console.SetCursorPosition(startX, startY)
+        Console.ForegroundColor <- startCell.foreground
+        Console.BackgroundColor <- startCell.background
+
+        for y in startY .. endY do
+            for x in startX .. endX do
+                out.Write(match Map.tryFind (x, y) cellLookup with
+                          | Some({glyph = g}) ->  g
+                          | None -> ' ')
+        
+        out.Flush()
+        
+        
+    Map.toList screen 
+        |> List.sortBy (fun ((x, y), _) -> y * consoleWidth + x)
+        |> chunkBy (fun (_, c1) (_, c2) -> needsFlush c1 c2)
+        |> List.iter renderChunk
+
+let renderNotes notes screen =
     let rec go y notes screen = 
         match notes with
         | [] -> screen
@@ -53,8 +109,6 @@ let renderNotes (screen: Screen) (notes: Notes) =
     
     go 0 notes screen
 
-
-let initState = {screen = emptyScreen; buffer = []; shouldQuit = false; mode = Tree}
 
 let processKey ({buffer=b} as s: State) key =
     match key with
@@ -73,9 +127,35 @@ let readKey () : KeyPress =
         withCtrl = k.Modifiers.HasFlag(ConsoleModifiers.Control)
     }
 
+let renderBuffer buffer screen =
+    let bufferText = sprintf "%A" buffer
+    let (s, _) = putString screen (0, consoleHeight - 1) ConsoleColor.Cyan defaultBackgroundColor bufferText
+    s
+
+let render state =
+    emptyScreen 
+        |> renderNotes state.notes 
+        |> renderBuffer state.buffer
+
 [<EntryPoint>]
 let main argv =
-    let s = renderNotes emptyScreen ["First note"; "And another one!"]
-    do display s
-    Console.ReadKey() |> ignore
+(*
+    out.Write("aaaaaaaaaaaaaaaaaa\naa")
+    out.Flush()
+    Console.ForegroundColor<-ConsoleColor.Cyan
+    Console.SetCursorPosition(16, 0)
+    out.Write("bbbbbbbbbbbbbbbbbb")
+    out.Flush()
+    *)
+    //chunkBy (fun a b -> a = b) [1; 1; 2; 3; 3; 3; 4] |> printfn "%A"
+
+    let rec mainLoop state =
+        let state' = readKey() |> processKey state
+        let screen = render state'
+        do display screen
+        match state' with
+        | {shouldQuit = true} -> state'
+        | _ -> mainLoop state' 
+        
+    mainLoop initState |> ignore
     0
