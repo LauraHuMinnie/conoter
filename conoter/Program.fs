@@ -9,8 +9,6 @@ open System.Linq
 
 type Cell = {glyph: char; foreground: ConsoleColor; background: ConsoleColor}
 
-// Not sure about this being mutable.
-// TODO: Convert this to Map
 type Screen = Map<int * int, Cell>
 let emptyScreen = Map.empty
 
@@ -44,13 +42,6 @@ let putString (s: Screen) ((startX, startY) as startPos) foreground background (
                         (Map.add pos {cellProto with glyph = c} screen, pos)) 
                     (s, startPos)
             
-let renderCell pos cell =
-    do 
-        Console.SetCursorPosition pos
-        Console.ForegroundColor <- cell.foreground
-        Console.BackgroundColor <- cell.background
-        Console.Write(cell.glyph)
-
 let rec chunkBy (f: 'a -> 'a -> bool) (ls: list<'a>) =
     // for (=) [1; 1; 2; 3;] returns [1; 1]
     let rec firstChunk (f2: 'a -> 'a -> bool) =
@@ -67,9 +58,7 @@ let rec chunkBy (f: 'a -> 'a -> bool) (ls: list<'a>) =
     | [] -> []
     | c -> c::(chunkBy f (List.skip (List.length c) ls))
 
-
-let out = new StreamWriter(Console.OpenStandardOutput())
-let display screen = 
+let display (outStream: StreamWriter) screen = 
     do Console.Clear()
     let needsFlush {foreground = fg1; background = bg1} {foreground = fg2; background = bg2} =
         fg1 = fg2 && bg1 = bg2
@@ -87,12 +76,11 @@ let display screen =
 
         for y in startY .. endY do
             for x in startX .. endX do
-                out.Write(match Map.tryFind (x, y) cellLookup with
-                          | Some({glyph = g}) ->  g
-                          | None -> ' ')
+                outStream.Write(match Map.tryFind (x, y) cellLookup with
+                                | Some({glyph = g}) ->  g
+                                | None -> ' ')
         
-        out.Flush()
-        
+        outStream.Flush()
         
     Map.toList screen 
         |> List.sortBy (fun ((x, y), _) -> y * consoleWidth + x)
@@ -108,7 +96,6 @@ let renderNotes notes screen =
             go (y + 1) xs s
     
     go 0 notes screen
-
 
 let processKey ({buffer=b} as s: State) key =
     match key with
@@ -139,23 +126,14 @@ let render state =
 
 [<EntryPoint>]
 let main argv =
-(*
-    out.Write("aaaaaaaaaaaaaaaaaa\naa")
-    out.Flush()
-    Console.ForegroundColor<-ConsoleColor.Cyan
-    Console.SetCursorPosition(16, 0)
-    out.Write("bbbbbbbbbbbbbbbbbb")
-    out.Flush()
-    *)
-    //chunkBy (fun a b -> a = b) [1; 1; 2; 3; 3; 3; 4] |> printfn "%A"
-
+    use out = new StreamWriter(Console.OpenStandardOutput())
     let rec mainLoop state =
-        let state' = readKey() |> processKey state
-        let screen = render state'
-        do display screen
-        match state' with
-        | {shouldQuit = true} -> state'
-        | _ -> mainLoop state' 
+        let screen = render state
+        do display out screen
+
+        match readKey() |> processKey state with
+        | {shouldQuit = true as state'} -> state'
+        | state' -> mainLoop state' 
         
     mainLoop initState |> ignore
     0
