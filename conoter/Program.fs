@@ -59,7 +59,9 @@ let rec chunkBy (f: 'a -> 'a -> bool) (ls: list<'a>) =
     | c -> c::(chunkBy f (List.skip (List.length c) ls))
 
 let display (outStream: StreamWriter) screen = 
-    do Console.Clear()
+    Console.CursorVisible <- false
+    Console.Clear()
+    let originalCursorPos = (Console.CursorLeft, Console.CursorTop)
     let needsFlush {foreground = fg1; background = bg1} {foreground = fg2; background = bg2} =
         fg1 = fg2 && bg1 = bg2
     
@@ -81,11 +83,14 @@ let display (outStream: StreamWriter) screen =
                                 | None -> ' ')
         
         outStream.Flush()
-        
+
     Map.toList screen 
         |> List.sortBy (fun ((x, y), _) -> y * consoleWidth + x)
         |> chunkBy (fun (_, c1) (_, c2) -> needsFlush c1 c2)
         |> List.iter renderChunk
+
+    Console.SetCursorPosition originalCursorPos
+    Console.CursorVisible <- true
 
 let renderNotes notes screen =
     let rec go y notes screen = 
