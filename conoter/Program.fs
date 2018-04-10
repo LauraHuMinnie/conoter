@@ -9,24 +9,29 @@ open System.Linq
 open Screen
 
 
-type Notes = list<string>
+type Note = string
+type Notes = {current: Note; aboves: list<Note>; belows: list<Note>}
+let initNotes = {current = "Test note!"; aboves = ["One above!"]; belows = ["One below!"]}
 
 type EditorMode = Text | Tree
 
 type State = {buffer: list<String>; notes: Notes; shouldQuit: bool; mode: EditorMode}
-let initState = {buffer = []; notes = ["Test note!"]; shouldQuit = false; mode = Tree}
+let initState = {buffer = []; notes = initNotes; shouldQuit = false; mode = Tree}
 
 type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool; withShift: bool}
 
-let renderNotes notes screen =
+let renderNotes (notes: Notes) screen =
     let rec go y notes screen = 
         match notes with
-        | [] -> screen
+        | [] -> (screen, y)
         | note::xs -> 
             let (s, (_, y)) = putString screen (0, y) defaultForegroundColor defaultBackgroundColor (" - " + note)
             go (y + 1) xs s
     
-    go 0 notes screen
+    let (s, y) = go 0 notes.aboves screen
+    let (s, y) = go y [notes.current] s
+    let (s, _) = go y notes.belows s
+    s
 
 let processKey ({buffer=b} as s: State) key =
     match key with
