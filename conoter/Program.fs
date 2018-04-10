@@ -11,6 +11,13 @@ open Screen
 
 type Note = string
 type Notes = {current: Note; aboves: list<Note>; belows: list<Note>}
+
+let selectNext ({aboves = a; current = c; belows = b} as notes) = 
+    match List.tryHead b with
+    | Some(n) -> {aboves = c::a; current = n; belows = List.tail b}
+    | None -> notes
+    
+
 let initNotes = {current = "Test note!"; aboves = ["One above!"]; belows = ["One below!"]}
 
 type EditorMode = Text | Tree
@@ -30,7 +37,7 @@ let renderNotes (notes: Notes) (screen, pos) =
             go xs false (s, (0, y + 1))
     
     (screen, pos) 
-        |> go notes.aboves false
+        |> go (List.rev notes.aboves) false
         |> go [notes.current] true 
         |> go notes.belows false 
         |> fst
@@ -38,6 +45,8 @@ let renderNotes (notes: Notes) (screen, pos) =
 let processKey ({buffer=b} as s: State) key =
     match key with
     | { asChar = 'q' } -> { s with shouldQuit = true }
+    | { asChar = 'j' } -> { s with notes = selectNext s.notes }
+    | { asChar = 'k' } -> { s with shouldQuit = true }
     | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
     | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
     | { withCtrl = true } | { withAlt = true } -> s
