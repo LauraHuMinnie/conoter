@@ -20,19 +20,20 @@ let initState = {buffer = []; notes = initNotes; shouldQuit = false; mode = Tree
 
 type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool; withShift: bool}
 
-let renderNotes (notes: Notes) screen =
-    let rec go y notes isCurrent screen = 
+let renderNotes (notes: Notes) (screen, pos) =
+    let rec go notes isCurrent (screen, (x, y as pos)) = 
         match notes with
-        | [] -> (screen, y)
+        | [] -> (screen, pos)
         | note::xs -> 
             let prefix = if isCurrent then "==>" else " - "
-            let (s, (_, y)) = putString screen (0, y) defaultForegroundColor defaultBackgroundColor (prefix + note)
-            go (y + 1) xs false s
+            let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor (prefix + note)
+            go xs false (s, (0, y + 1))
     
-    let (s, y) = go 0 notes.aboves false screen
-    let (s, y) = go y [notes.current] true s
-    let (s, _) = go y notes.belows false s
-    s
+    (screen, pos) 
+        |> go notes.aboves false
+        |> go [notes.current] true 
+        |> go notes.belows false 
+        |> fst
 
 let processKey ({buffer=b} as s: State) key =
     match key with
@@ -57,7 +58,7 @@ let renderBuffer buffer screen =
     s
 
 let render state =
-    emptyScreen 
+    (emptyScreen, (0, 0))
         |> renderNotes state.notes 
         |> renderBuffer state.buffer
 
