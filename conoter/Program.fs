@@ -16,7 +16,11 @@ let selectNext ({aboves = a; current = c; belows = b} as notes) =
     match List.tryHead b with
     | Some(n) -> {aboves = c::a; current = n; belows = List.tail b}
     | None -> notes
-    
+
+let selectPrevious ({aboves = a; current = c; belows = b} as notes) =
+    match List.tryHead a with
+    | Some(n) -> {aboves = List.tail a; current = n; belows = c::b}
+    | None -> notes
 
 let initNotes = {current = "Test note!"; aboves = ["One above!"]; belows = ["One below!"]}
 
@@ -46,7 +50,7 @@ let processKey ({buffer=b} as s: State) key =
     match key with
     | { asChar = 'q' } -> { s with shouldQuit = true }
     | { asChar = 'j' } -> { s with notes = selectNext s.notes }
-    | { asChar = 'k' } -> { s with shouldQuit = true }
+    | { asChar = 'k' } -> { s with notes = selectPrevious s.notes }
     | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
     | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
     | { withCtrl = true } | { withAlt = true } -> s
