@@ -21,16 +21,17 @@ let initState = {buffer = []; notes = initNotes; shouldQuit = false; mode = Tree
 type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool; withShift: bool}
 
 let renderNotes (notes: Notes) screen =
-    let rec go y notes screen = 
+    let rec go y notes isCurrent screen = 
         match notes with
         | [] -> (screen, y)
         | note::xs -> 
-            let (s, (_, y)) = putString screen (0, y) defaultForegroundColor defaultBackgroundColor (" - " + note)
-            go (y + 1) xs s
+            let prefix = if isCurrent then "==>" else " - "
+            let (s, (_, y)) = putString screen (0, y) defaultForegroundColor defaultBackgroundColor (prefix + note)
+            go (y + 1) xs false s
     
-    let (s, y) = go 0 notes.aboves screen
-    let (s, y) = go y [notes.current] s
-    let (s, _) = go y notes.belows s
+    let (s, y) = go 0 notes.aboves false screen
+    let (s, y) = go y [notes.current] true s
+    let (s, _) = go y notes.belows false s
     s
 
 let processKey ({buffer=b} as s: State) key =
