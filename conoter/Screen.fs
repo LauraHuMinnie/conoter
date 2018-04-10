@@ -57,19 +57,25 @@ let display (outStream: StreamWriter) screen =
         a.foreground = b.foreground && a.background = b.background
     
     let renderChunk chunk =
-        let ((startX, startY), startCell) = List.head chunk
-        let ((endX, endY), _) = List.last chunk
+        let (startPos, startCell) = List.head chunk
+        let (endPos, _) = List.last chunk
         let cellLookup = Map.ofList chunk
 
-        Console.SetCursorPosition(startX, startY)
+        let delinearize index =
+            let (y, x) = Math.DivRem(index, consoleWidth)
+            (x, y)
+        
+        let linearize (x, y) =
+            x + y * consoleWidth
+
+        Console.SetCursorPosition startPos
         Console.ForegroundColor <- startCell.foreground
         Console.BackgroundColor <- startCell.background
 
-        for y in startY .. endY do
-            for x in startX .. endX do
-                outStream.Write(match Map.tryFind (x, y) cellLookup with
-                                | Some({glyph = g}) ->  g
-                                | None -> ' ')
+        for index in linearize startPos .. linearize endPos do
+            outStream.Write(match Map.tryFind (delinearize index) cellLookup with
+                            | Some({glyph = g}) ->  g
+                            | None -> ' ')
         
         outStream.Flush()
 
