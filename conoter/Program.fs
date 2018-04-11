@@ -57,6 +57,12 @@ let appendCharToCurrentNote (c: char) (s: State) =
 let backspaceToCurrentNote (s: State) =
     { s with notes = {s.notes with current = s.notes.current.Substring(0, s.notes.current.Length - 1) } }
 
+let insertAbove (notes: Notes) =
+    { notes with belows = notes.current::notes.belows; current = "" }
+
+let insertBelow (notes: Notes) =
+    { notes with aboves = notes.current::notes.aboves; current = "" }
+
 let processKey ({buffer=b} as s: State) key =
     if s.mode = Tree then
         match key with
@@ -64,6 +70,8 @@ let processKey ({buffer=b} as s: State) key =
         | { asChar = 'j' } -> { s with notes = selectNext s.notes }
         | { asChar = 'k' } -> { s with notes = selectPrevious s.notes }
         | { asChar = 'i' } -> { s with mode = Text}
+        | { asChar = 'o' } -> { s with notes = insertBelow s.notes; mode = Text }
+        | { asChar = 'O' } -> { s with notes = insertAbove s.notes; mode = Text }
         | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
         | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
         | { withCtrl = true } | { withAlt = true } -> s
