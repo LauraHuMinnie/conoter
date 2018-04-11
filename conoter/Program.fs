@@ -63,6 +63,12 @@ let insertAbove (notes: Notes) =
 let insertBelow (notes: Notes) =
     { notes with aboves = notes.current::notes.aboves; current = "" }
 
+let deleteCurrent (notes: Notes) = 
+    match (List.tryHead notes.aboves, List.tryHead notes.belows) with
+    | (Some(n), None) | (Some(n), Some(_)) -> {notes with aboves = List.tail notes.aboves; current = n}
+    | (None, Some(n)) -> {notes with belows = List.tail notes.belows; current = n}
+    | _ -> notes
+
 let processKey ({buffer=b} as s: State) key =
     if s.mode = Tree then
         match key with
@@ -72,6 +78,7 @@ let processKey ({buffer=b} as s: State) key =
         | { asChar = 'i' } -> { s with mode = Text}
         | { asChar = 'o' } -> { s with notes = insertBelow s.notes; mode = Text }
         | { asChar = 'O' } -> { s with notes = insertAbove s.notes; mode = Text }
+        | { asChar = 'd' } -> { s with notes = deleteCurrent s.notes }
         | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
         | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
         | { withCtrl = true } | { withAlt = true } -> s
