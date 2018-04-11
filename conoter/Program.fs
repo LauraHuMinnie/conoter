@@ -47,14 +47,20 @@ let renderNotes (notes: Notes) (screen, pos) =
         |> fst
 
 let processKey ({buffer=b} as s: State) key =
-    match key with
-    | { asChar = 'q' } -> { s with shouldQuit = true }
-    | { asChar = 'j' } -> { s with notes = selectNext s.notes }
-    | { asChar = 'k' } -> { s with notes = selectPrevious s.notes }
-    | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
-    | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
-    | { withCtrl = true } | { withAlt = true } -> s
-    | c -> { s with buffer = c.asChar.ToString() :: b }
+    if s.mode = Tree then
+        match key with
+        | { asChar = 'q' } -> { s with shouldQuit = true }
+        | { asChar = 'j' } -> { s with notes = selectNext s.notes }
+        | { asChar = 'k' } -> { s with notes = selectPrevious s.notes }
+        | { asChar = 'i' } -> { s with mode = Text}
+        | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
+        | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
+        | { withCtrl = true } | { withAlt = true } -> s
+        | c -> { s with buffer = c.asChar.ToString() :: b }
+    else
+        match key with
+        | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree }
+        | _ -> s
 
 let readKey () : KeyPress =
     let k = Console.ReadKey(true)
@@ -65,15 +71,15 @@ let readKey () : KeyPress =
         withCtrl = k.Modifiers.HasFlag(ConsoleModifiers.Control)
     }
 
-let renderBuffer buffer screen =
-    let bufferText = sprintf "%A" buffer
+let renderStatusLine state screen =
+    let bufferText = sprintf "%A - %A" state.mode state.buffer
     let (s, _) = putString screen (0, consoleHeight - 1) ConsoleColor.Cyan defaultBackgroundColor bufferText
     s
 
 let render state =
     (emptyScreen, (0, 0))
         |> renderNotes state.notes 
-        |> renderBuffer state.buffer
+        |> renderStatusLine state
 
 [<EntryPoint>]
 let main argv =
