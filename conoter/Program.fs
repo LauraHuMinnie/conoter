@@ -45,6 +45,11 @@ let renderNotes (notes: Notes) (screen, pos) =
         |> go [notes.current] true 
         |> go notes.belows false 
         |> fst
+ 
+let isPrintable (c: char) =
+    match int c with
+    | i when i >= 10 && i <= 126 -> true
+    | _ -> false
 
 let processKey ({buffer=b} as s: State) key =
     if s.mode = Tree then
@@ -60,6 +65,7 @@ let processKey ({buffer=b} as s: State) key =
     else
         match key with
         | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree }
+        | { asChar = c } when isPrintable c -> { s with notes = {s.notes with current = s.notes.current + c.ToString() } }
         | _ -> s
 
 let readKey () : KeyPress =
