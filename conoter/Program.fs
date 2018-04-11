@@ -51,6 +51,12 @@ let isPrintable (c: char) =
     | i when i >= 10 && i <= 126 -> true
     | _ -> false
 
+let appendCharToCurrentNote (c: char) (s: State) =
+    { s with notes = {s.notes with current = s.notes.current + c.ToString() } }
+
+let backspaceToCurrentNote (s: State) =
+    { s with notes = {s.notes with current = s.notes.current.Substring(0, s.notes.current.Length - 1) } }
+
 let processKey ({buffer=b} as s: State) key =
     if s.mode = Tree then
         match key with
@@ -65,8 +71,10 @@ let processKey ({buffer=b} as s: State) key =
     else
         match key with
         | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree }
-        | { asChar = c } when isPrintable c -> { s with notes = {s.notes with current = s.notes.current + c.ToString() } }
+        | { asChar = c } when isPrintable c -> appendCharToCurrentNote c s
+        | { asEnum = ConsoleKey.Backspace } -> backspaceToCurrentNote s
         | _ -> s
+
 
 let readKey () : KeyPress =
     let k = Console.ReadKey(true)
