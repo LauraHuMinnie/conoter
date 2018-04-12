@@ -7,24 +7,9 @@ open System.Linq
 open System.Linq
 open System.Linq
 open Screen
+open Notes
 
-
-type Note = string
-type Notes = {current: Note; aboves: list<Note>; belows: list<Note>}
-
-let selectNext ({aboves = a; current = c; belows = b} as notes) = 
-    match List.tryHead b with
-    | Some(n) -> {aboves = c::a; current = n; belows = List.tail b}
-    | None -> notes
-
-let selectPrevious ({aboves = a; current = c; belows = b} as notes) =
-    match List.tryHead a with
-    | Some(n) -> {aboves = List.tail a; current = n; belows = c::b}
-    | None -> notes
-
-let initNotes = {current = "Test note!"; aboves = ["One above!"]; belows = ["One below!"]}
-
-type EditorMode = Text | Tree
+type EditorMode = Text | Tree | Normal
 
 type State = {buffer: list<String>; notes: Notes; shouldQuit: bool; mode: EditorMode}
 let initState = {buffer = []; notes = initNotes; shouldQuit = false; mode = Tree}
@@ -57,20 +42,9 @@ let appendCharToCurrentNote (c: char) (s: State) =
 let backspaceToCurrentNote (s: State) =
     { s with notes = {s.notes with current = s.notes.current.Substring(0, s.notes.current.Length - 1) } }
 
-let insertAbove (notes: Notes) =
-    { notes with belows = notes.current::notes.belows; current = "" }
-
-let insertBelow (notes: Notes) =
-    { notes with aboves = notes.current::notes.aboves; current = "" }
-
-let deleteCurrent (notes: Notes) = 
-    match (List.tryHead notes.aboves, List.tryHead notes.belows) with
-    | (Some(n), None) | (Some(n), Some(_)) -> {notes with aboves = List.tail notes.aboves; current = n}
-    | (None, Some(n)) -> {notes with belows = List.tail notes.belows; current = n}
-    | _ -> notes
-
 let processKey ({buffer=b} as s: State) key =
-    if s.mode = Tree then
+    match s.mode with
+    | Tree ->
         match key with
         | { asChar = 'q' } -> { s with shouldQuit = true }
         | { asChar = 'j' } -> { s with notes = selectNext s.notes }
@@ -83,13 +57,14 @@ let processKey ({buffer=b} as s: State) key =
         | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
         | { withCtrl = true } | { withAlt = true } -> s
         | c -> { s with buffer = c.asChar.ToString() :: b }
-    else
+    | Text ->
         match key with
         | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree }
         | { asChar = c } when isPrintable c -> appendCharToCurrentNote c s
         | { asEnum = ConsoleKey.Backspace } -> backspaceToCurrentNote s
         | _ -> s
-
+    | Normal ->
+        s
 
 let readKey () : KeyPress =
     let k = Console.ReadKey(true)
@@ -102,8 +77,7 @@ let readKey () : KeyPress =
 
 let renderStatusLine state screen =
     let bufferText = sprintf "%A - %A" state.mode state.buffer
-    let (s, _) = putString screen (0, consoleHeight - 1) ConsoleColor.Cyan defaultBackgroundColor bufferText
-    s
+    fst <| putString screen (0, consoleHeight - 1) ConsoleColor.Cyan defaultBackgroundColor bufferText
 
 let render state =
     (emptyScreen, (0, 0))
