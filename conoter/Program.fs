@@ -40,7 +40,10 @@ let appendCharToCurrentNote (c: char) (s: State) =
     { s with notes = {s.notes with current = s.notes.current + c.ToString() } }
 
 let backspaceToCurrentNote (s: State) =
-    { s with notes = {s.notes with current = s.notes.current.Substring(0, s.notes.current.Length - 1) } }
+    if s.notes.current.Length > 0 then
+        { s with notes = {s.notes with current = s.notes.current.Substring(0, s.notes.current.Length - 1) } }
+    else
+        s
 
 let processKey ({buffer=b} as s: State) key =
     match s.mode with
@@ -88,6 +91,8 @@ let render state =
 let main argv =
     use out = new StreamWriter(Console.OpenStandardOutput())
     let rec mainLoop state =
+        for i in state.notes.current.Select(int).ToList() do 
+            Trace.TraceInformation(i.ToString())
         let screen = render state
         do display out screen
 
