@@ -15,19 +15,20 @@ let defaultCell = {glyph = ' '; foreground = defaultForegroundColor; background 
 let consoleWidth = Console.WindowWidth
 let consoleHeight = Console.WindowHeight
 
-let putString (s: Screen) ((startX, startY) as startPos) foreground background (string: String) =
+let putString (s: Screen) ((startX, _) as startPos) foreground background (string: String) =
     let cellProto = {defaultCell with foreground = foreground; background = background}
-
-    let getPosAndGlyph charIndex =
-        let (yOffset, x) = Math.DivRem(charIndex + startX, consoleWidth - startX)
-        let y = yOffset + startY
-        ((x, y), string.[charIndex])
+    
+    let putAndAdvance (screen, ((x, y) as pos)) charIndex =
+        let c = string.[charIndex]
+        match c with
+        | '\n' | '\r' -> (screen, (startX, y + 1))
+        | c -> (Map.add pos {cellProto with glyph = c} screen, 
+                if x + 1 > Console.WindowWidth 
+                then (startX, y + 1)
+                else (x + 1, y))
 
     seq { 0 .. string.Length - 1 }
-        |> Seq.map getPosAndGlyph 
-        |> Seq.fold (fun (screen, _) (pos, c) -> 
-                        (Map.add pos {cellProto with glyph = c} screen, pos)) 
-                    (s, startPos)
+        |> Seq.fold putAndAdvance (s, startPos)
             
 let rec chunkBy (f: 'a -> 'a -> bool) (ls: list<'a>) =
     // for (=) [1; 1; 2; 3;] returns [1; 1]
