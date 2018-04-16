@@ -15,17 +15,23 @@ let defaultCell = {glyph = ' '; foreground = defaultForegroundColor; background 
 let consoleWidth = Console.WindowWidth
 let consoleHeight = Console.WindowHeight
 
-let walkStringPositions (s: string) ((startX, startY) as startPos) =
+let walkStringPositions (s: string) (startX, startY) =
     seq {
-        let mutable pos = startPos
+        let mutable pos = (startX - 1, startY)
+        let mutable shouldEmit = false
         for i in 0 .. s.Length - 1 do
             let (x, y) = pos
             pos <- match s.[i] with
-                   | '\n' | '\r' -> (startX, y + 1)
-                   | _ -> if x + 1 > Console.WindowWidth 
-                          then (startX, y + 1)
-                          else (x + 1, y)
-            yield (i, pos)
+                   | '\n' | '\r' -> 
+                        shouldEmit <- false
+                        (startX - 1, y + 1)
+                   | _ -> 
+                        shouldEmit <- true
+                        if x + 1 > Console.WindowWidth 
+                        then (startX, y + 1)
+                        else (x + 1, y)
+            if shouldEmit then
+                yield (i, pos)
     }
 
 let isPrintable (c: char) =
