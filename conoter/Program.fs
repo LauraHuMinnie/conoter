@@ -4,8 +4,6 @@ open Utils
 open System.Diagnostics
 open System.IO
 open System.Linq
-open System.Linq
-open System.Linq
 open Screen
 open Notes
 
@@ -16,7 +14,10 @@ let initState = {buffer = []; notes = initNotes; shouldQuit = false; mode = Tree
 
 type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool; withShift: bool}
 
+// returns (screen, cursorPos)
 let renderNotes (notes: Notes) (screen, pos) =
+    //let rec getCursorPosFromIndex (startX, startY as noteStartPos) index =
+        
     let rec go notes isCurrent (screen, (x, y as pos)) = 
         match notes with
         | [] -> (screen, pos)
@@ -31,11 +32,6 @@ let renderNotes (notes: Notes) (screen, pos) =
         |> go notes.belows false 
         |> fst
  
-let isPrintable (c: char) =
-    match int c with
-    | i when i >= 10 && i <= 126 -> true
-    | _ -> false
-
 let appendCharToCurrentNote (c: char) (s: State) =
     { s with notes = {s.notes with current = s.notes.current + c.ToString() } }
 

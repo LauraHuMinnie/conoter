@@ -15,20 +15,34 @@ let defaultCell = {glyph = ' '; foreground = defaultForegroundColor; background 
 let consoleWidth = Console.WindowWidth
 let consoleHeight = Console.WindowHeight
 
-let putString (s: Screen) ((startX, _) as startPos) foreground background (string: String) =
-    let cellProto = {defaultCell with foreground = foreground; background = background}
-    
-    let putAndAdvance (screen, ((x, y) as pos)) charIndex =
-        let c = string.[charIndex]
-        match c with
-        | '\n' | '\r' -> (screen, (startX, y + 1))
-        | c -> (Map.add pos {cellProto with glyph = c} screen, 
-                if x + 1 > Console.WindowWidth 
-                then (startX, y + 1)
-                else (x + 1, y))
+let walkStringPositions (s: string) ((startX, startY) as startPos) =
+    seq {
+        let mutable pos = startPos
+        for i in 0 .. s.Length - 1 do
+            let (x, y) = pos
+            pos <- match s.[i] with
+                   | '\n' | '\r' -> (startX, y + 1)
+                   | _ -> if x + 1 > Console.WindowWidth 
+                          then (startX, y + 1)
+                          else (x + 1, y)
+            yield (i, pos)
+    }
 
-    seq { 0 .. string.Length - 1 }
-        |> Seq.fold putAndAdvance (s, startPos)
+let isPrintable (c: char) =
+    match int c with
+    | i when i >= 10 && i <= 126 -> true
+    | _ -> false
+
+let putString (s: Screen) startPos foreground background (string: String) =
+    let cellProto = {defaultCell with foreground = foreground; background = background}
+
+    let writeIfPrintable char pos screen =
+        if isPrintable char
+        then Map.add pos {cellProto with glyph = char} screen
+        else screen
+
+    walkStringPositions string startPos 
+        |> Seq.fold (fun (screen, _) (i, pos) -> (writeIfPrintable string.[i] pos screen, pos)) (s, startPos)
             
 let rec chunkBy (f: 'a -> 'a -> bool) (ls: list<'a>) =
     // for (=) [1; 1; 2; 3;] returns [1; 1]
