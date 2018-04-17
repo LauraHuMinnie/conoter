@@ -66,44 +66,71 @@ let rec chunkBy (f: 'a -> 'a -> bool) (ls: list<'a>) =
     | [] -> []
     | c -> c::(chunkBy f (List.skip (List.length c) ls))
 
-let display (outStream: StreamWriter) screen = 
+let unwrapOrSkip seq =
+   Seq.filter Option.isSome seq
+        |> Seq.map Option.get
+
+let diff (prev: Screen) next =
+    let getKeysSet =
+        Map.toSeq 
+            >> Seq.map (fun (key, _) -> key)
+            >> Set.ofSeq 
+            
+    let includeInDiff pos =
+        match (Map.tryFind pos prev, Map.tryFind pos next) with
+        | (Some(c1), Some(c2)) when c1 <> c2 -> Some((pos, c2))
+        | (None, Some(c2)) -> Some((pos, c2))
+        | (Some(_), None) -> Some((pos, defaultCell))
+        | _ -> None
+        
+    Set.union (getKeysSet prev) (getKeysSet next)
+        |> Set.toSeq
+        |> Seq.map includeInDiff
+        |> unwrapOrSkip
+        |> Map.ofSeq
+
+let delinearize index =
+    let (y, x) = Math.DivRem(index, consoleWidth)
+    (x, y)
+
+let linearize (x, y) =
+    x + y * Console.BufferWidth
+
+let nextPosition =
+    linearize  
+        >> (+) 1
+        >> delinearize
+
+let needsFlush (pos, a) (nextPos, b) =
+    a.foreground = b.foreground && a.background = b.background && (nextPosition pos) = nextPos
+
+let renderChunk (outStream: StreamWriter) chunk =
+    let (startPos, startCell) = List.head chunk
+    Console.ForegroundColor <- startCell.foreground
+    Console.BackgroundColor <- startCell.background
+
+    Console.SetCursorPosition startPos
+    List.iter (fun (_, cell) -> outStream.Write(cell.glyph)) chunk
+    
+    outStream.Flush()
+
+let display (outStream: StreamWriter) shouldClearScreen screen = 
     // Perf note: This function could be a lot simpler, but to make the console
     // in windows not take forever to draw everything, I have to write to the stream
     // and flush a minimal number of times. Console.WRite(' ') flushes every char
     // which is way too slow.
     Console.CursorVisible <- false
-    Console.Clear()
+    if shouldClearScreen then Console.Clear()
     let originalCursorPos = (Console.CursorLeft, Console.CursorTop)
-    let needsFlush a b =
-        a.foreground = b.foreground && a.background = b.background
-    
-    let renderChunk chunk =
-        let (startPos, startCell) = List.head chunk
-        let (endPos, _) = List.last chunk
-        let cellLookup = Map.ofList chunk
-
-        let delinearize index =
-            let (y, x) = Math.DivRem(index, consoleWidth)
-            (x, y)
-        
-        let linearize (x, y) =
-            x + y * consoleWidth
-
-        Console.SetCursorPosition startPos
-        Console.ForegroundColor <- startCell.foreground
-        Console.BackgroundColor <- startCell.background
-
-        for index in linearize startPos .. linearize endPos do
-            outStream.Write(match Map.tryFind (delinearize index) cellLookup with
-                            | Some({glyph = g}) ->  g
-                            | None -> ' ')
-        
-        outStream.Flush()
 
     Map.toList screen 
-        |> List.sortBy (fun ((x, y), _) -> y * consoleWidth + x)
-        |> chunkBy (fun (_, c1) (_, c2) -> needsFlush c1 c2)
-        |> List.iter renderChunk
+        |> List.sortBy (fun (pos, _) -> linearize pos)
+        |> chunkBy needsFlush
+        |> List.iter (renderChunk outStream)
 
     Console.SetCursorPosition originalCursorPos
     Console.CursorVisible <- true
+
+let displayDiff (outStream: StreamWriter) oldScreen newScreen =
+    diff oldScreen newScreen
+        |> display outStream false

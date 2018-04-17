@@ -86,15 +86,13 @@ let render state =
 [<EntryPoint>]
 let main argv =
     use out = new StreamWriter(Console.OpenStandardOutput())
-    let rec mainLoop state =
-        for i in state.notes.current.Select(int).ToList() do 
-            Trace.TraceInformation(i.ToString())
-        let screen = render state
-        do display out screen
+    let rec mainLoop screen state =
+        let screen' = render state
+        do displayDiff out screen screen'
 
         match readKey() |> processKey state with
         | {shouldQuit = true as state'} -> state'
-        | state' -> mainLoop state' 
+        | state' -> mainLoop screen' state' 
         
-    mainLoop initState |> ignore
+    mainLoop emptyScreen initState |> ignore
     0
