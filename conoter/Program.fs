@@ -76,7 +76,7 @@ let readKey () : KeyPress =
 
 let renderStatusLine state screen =
     let bufferText = sprintf "%A - %A" state.mode state.buffer
-    fst <| putString screen (0, consoleHeight - 1) ConsoleColor.Cyan defaultBackgroundColor bufferText
+    fst <| putString screen (0, Console.BufferHeight - 1) ConsoleColor.Cyan defaultBackgroundColor bufferText
 
 let render state =
     (emptyScreen, (0, 0))
@@ -86,9 +86,20 @@ let render state =
 [<EntryPoint>]
 let main argv =
     use out = new StreamWriter(Console.OpenStandardOutput())
+    let mutable lastBufferSize = (Console.BufferWidth, Console.BufferHeight)
     let rec mainLoop screen state =
+        let bufferSize = (Console.BufferWidth, Console.BufferHeight)
+        let didWindowSizeChange = bufferSize <> lastBufferSize
+
+        Console.SetBufferSize(Console.WindowWidth, Console.WindowHeight)
+
         let screen' = render state
-        do displayDiff out screen screen'
+
+        if didWindowSizeChange
+        then do display out true screen'
+        else do displayDiff out screen screen'
+
+        lastBufferSize <- bufferSize
 
         match readKey() |> processKey state with
         | {shouldQuit = true as state'} -> state'

@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Diagnostics
 
 type Cell = {glyph: char; foreground: ConsoleColor; background: ConsoleColor}
 
@@ -11,9 +12,6 @@ let emptyScreen = Map.empty
 let defaultBackgroundColor = ConsoleColor.Black
 let defaultForegroundColor = ConsoleColor.White
 let defaultCell = {glyph = ' '; foreground = defaultForegroundColor; background = defaultBackgroundColor}
-
-let consoleWidth = Console.WindowWidth
-let consoleHeight = Console.WindowHeight
 
 let walkStringPositions (s: string) (startX, startY) =
     seq {
@@ -27,7 +25,7 @@ let walkStringPositions (s: string) (startX, startY) =
                         (startX - 1, y + 1)
                    | _ -> 
                         shouldEmit <- true
-                        if x + 1 > Console.WindowWidth 
+                        if x + 1 >= Console.BufferWidth 
                         then (startX, y + 1)
                         else (x + 1, y)
             if shouldEmit then
@@ -70,6 +68,9 @@ let unwrapOrSkip seq =
    Seq.filter Option.isSome seq
         |> Seq.map Option.get
 
+let isInBuffer (x, y) =
+    x >= 0 && x < Console.BufferWidth && y >= 0 && y < Console.BufferHeight
+
 let diff (prev: Screen) next =
     let getKeysSet =
         Map.toSeq 
@@ -77,11 +78,14 @@ let diff (prev: Screen) next =
             >> Set.ofSeq 
             
     let includeInDiff pos =
-        match (Map.tryFind pos prev, Map.tryFind pos next) with
-        | (Some(c1), Some(c2)) when c1 <> c2 -> Some((pos, c2))
-        | (None, Some(c2)) -> Some((pos, c2))
-        | (Some(_), None) -> Some((pos, defaultCell))
-        | _ -> None
+        if isInBuffer pos then
+            match (Map.tryFind pos prev, Map.tryFind pos next) with
+            | (Some(c1), Some(c2)) when c1 <> c2 -> Some((pos, c2))
+            | (None, Some(c2)) -> Some((pos, c2))
+            | (Some(_), None) -> Some((pos, defaultCell))
+            | _ -> None
+        else
+            None
         
     Set.union (getKeysSet prev) (getKeysSet next)
         |> Set.toSeq
@@ -90,7 +94,7 @@ let diff (prev: Screen) next =
         |> Map.ofSeq
 
 let delinearize index =
-    let (y, x) = Math.DivRem(index, consoleWidth)
+    let (y, x) = Math.DivRem(index, Console.BufferWidth)
     (x, y)
 
 let linearize (x, y) =
