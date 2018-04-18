@@ -18,12 +18,17 @@ type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool
 let renderNotes (notes: Notes) (screen, pos) =
     //let rec getCursorPosFromIndex (startX, startY as noteStartPos) index =
         
-    let rec go notes isCurrent (screen, (x, y as pos)) = 
-        match notes with
+    let rec go strings isCurrent (screen, (startX, startY as pos)) = 
+        match strings with
         | [] -> (screen, pos)
         | note::xs -> 
             let prefix = if isCurrent then "==>" else " - "
             let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor (prefix + note)
+            if isCurrent then
+                do Console.SetCursorPosition (walkStringPositions note pos
+                                                |> Seq.tryFind (fun (i, _) -> i = notes.cursor + prefix.Length) 
+                                                |> Option.defaultValue (0, (startX + prefix.Length, startY))
+                                                |> snd)
             go xs false (s, (0, y + 1))
     
     (screen, pos) 
