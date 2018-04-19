@@ -26,7 +26,6 @@ let renderNotes (notes: Notes) (screen, pos) =
             let renderedText = prefix + note
             let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor renderedText
             if isCurrent then
-                Trace.TraceInformation(sprintf "cursor = %A; note length = %A" notes.cursor note.Length)
                 do Console.SetCursorPosition (walkStringPositions (renderedText + " ") pos
                                                 |> Seq.tryFind (fun (i, _) -> i = notes.cursor + prefix.Length) 
                                                 |> Option.defaultValue (0, (startX + prefix.Length, startY))
@@ -48,10 +47,14 @@ let backspaceAtCursor (s: State) =
     else
         s
 
+let moveCursorByChar distance ({notes=n} as s) =
+    { s with notes = {n with cursor = Math.Clamp(n.cursor + distance, 0, n.current.Length) } }
+
 let processKey ({buffer=b} as s: State) key =
     match s.mode with
     | Tree ->
         match key with
+        | { withCtrl = true } | { withAlt = true } -> s
         | { asChar = 'q' } -> { s with shouldQuit = true }
         | { asChar = 'j' } -> { s with notes = selectNext s.notes }
         | { asChar = 'k' } -> { s with notes = selectPrevious s.notes }
@@ -60,18 +63,23 @@ let processKey ({buffer=b} as s: State) key =
         | { asChar = 'o' } -> { s with notes = insertBelow s.notes; mode = Text }
         | { asChar = 'O' } -> { s with notes = insertAbove s.notes; mode = Text }
         | { asChar = 'd' } -> { s with notes = deleteCurrent s.notes }
+        | { asChar = 'e' } -> { s with mode = Normal }
         | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
         | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
-        | { withCtrl = true } | { withAlt = true } -> s
         | c -> { s with buffer = c.asChar.ToString() :: b }
     | Text ->
         match key with
-        | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree; notes = {s.notes with cursor = 0} }
+        | { asEnum = ConsoleKey.Escape } -> { s with mode = Normal }
         | { asChar = c } when isPrintable c -> insertCharAtCursor c s
         | { asEnum = ConsoleKey.Backspace } -> backspaceAtCursor s
         | _ -> s
     | Normal ->
-        s
+        match key with
+        | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree; notes = {s.notes with cursor = 0} }
+        | { asChar = 'l' } -> moveCursorByChar 1 s
+        | { asChar = 'h' } -> moveCursorByChar -1 s
+        | { asChar = 'i' } -> { s with mode = Text }
+        | _ -> s
 
 let readKey () : KeyPress =
     let k = Console.ReadKey(true)
@@ -86,10 +94,20 @@ let renderStatusLine state screen =
     let bufferText = sprintf "%A - %A" state.mode state.buffer
     fst <| putString screen (0, Console.BufferHeight - 1) ConsoleColor.Cyan defaultBackgroundColor bufferText
 
+let configureCursor state screen =
+    Console.CursorSize <- match state.mode with
+                          | Normal -> 100
+                          | Text -> 50
+                          | Tree -> 1
+
+    Console.CursorVisible <- state.mode <> Tree
+    screen
+
 let render state =
     (emptyScreen, (0, 0))
         |> renderNotes state.notes 
         |> renderStatusLine state
+        |> configureCursor state
 
 [<EntryPoint>]
 let main argv =

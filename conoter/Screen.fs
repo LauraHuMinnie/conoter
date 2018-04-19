@@ -123,6 +123,7 @@ let display (outStream: StreamWriter) shouldClearScreen screen =
     // in windows not take forever to draw everything, I have to write to the stream
     // and flush a minimal number of times. Console.WRite(' ') flushes every char
     // which is way too slow.
+    let originalCursorVisible = Console.CursorVisible
     Console.CursorVisible <- false
     if shouldClearScreen then Console.Clear()
     let originalCursorPos = (Console.CursorLeft, Console.CursorTop)
@@ -133,7 +134,7 @@ let display (outStream: StreamWriter) shouldClearScreen screen =
         |> List.iter (renderChunk outStream)
 
     Console.SetCursorPosition originalCursorPos
-    Console.CursorVisible <- true
+    Console.CursorVisible <- originalCursorVisible
 
 let displayDiff (outStream: StreamWriter) oldScreen newScreen =
     diff oldScreen newScreen
