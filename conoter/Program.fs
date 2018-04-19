@@ -23,9 +23,11 @@ let renderNotes (notes: Notes) (screen, pos) =
         | [] -> (screen, pos)
         | note::xs -> 
             let prefix = if isCurrent then "==>" else " - "
-            let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor (prefix + note)
+            let renderedText = prefix + note
+            let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor renderedText
             if isCurrent then
-                do Console.SetCursorPosition (walkStringPositions note pos
+                Trace.TraceInformation(sprintf "cursor = %A; note length = %A" notes.cursor note.Length)
+                do Console.SetCursorPosition (walkStringPositions (renderedText + " ") pos
                                                 |> Seq.tryFind (fun (i, _) -> i = notes.cursor + prefix.Length) 
                                                 |> Option.defaultValue (0, (startX + prefix.Length, startY))
                                                 |> snd)
@@ -37,12 +39,12 @@ let renderNotes (notes: Notes) (screen, pos) =
         |> go notes.belows false 
         |> fst
  
-let appendCharToCurrentNote (c: char) (s: State) =
-    { s with notes = {s.notes with current = s.notes.current + c.ToString() } }
+let insertCharAtCursor (c: char) (s: State) =
+    { s with notes = {s.notes with current = s.notes.current.Insert(s.notes.cursor, c.ToString()); cursor = s.notes.cursor + 1 } }
 
-let backspaceToCurrentNote (s: State) =
-    if s.notes.current.Length > 0 then
-        { s with notes = {s.notes with current = s.notes.current.Substring(0, s.notes.current.Length - 1) } }
+let backspaceAtCursor (s: State) =
+    if s.notes.current.Length > 0 && s.notes.cursor > 0 then
+        { s with notes = {s.notes with current = s.notes.current.Remove(s.notes.cursor - 1, 1); cursor = s.notes.cursor - 1  } }
     else
         s
 
@@ -53,7 +55,8 @@ let processKey ({buffer=b} as s: State) key =
         | { asChar = 'q' } -> { s with shouldQuit = true }
         | { asChar = 'j' } -> { s with notes = selectNext s.notes }
         | { asChar = 'k' } -> { s with notes = selectPrevious s.notes }
-        | { asChar = 'i' } -> { s with mode = Text}
+        | { asChar = 'a' } -> { s with mode = Text; notes = { s.notes with cursor = s.notes.current.Length }}
+        | { asChar = 'i' } -> { s with mode = Text; notes = { s.notes with cursor = 0 }}
         | { asChar = 'o' } -> { s with notes = insertBelow s.notes; mode = Text }
         | { asChar = 'O' } -> { s with notes = insertAbove s.notes; mode = Text }
         | { asChar = 'd' } -> { s with notes = deleteCurrent s.notes }
@@ -63,9 +66,9 @@ let processKey ({buffer=b} as s: State) key =
         | c -> { s with buffer = c.asChar.ToString() :: b }
     | Text ->
         match key with
-        | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree }
-        | { asChar = c } when isPrintable c -> appendCharToCurrentNote c s
-        | { asEnum = ConsoleKey.Backspace } -> backspaceToCurrentNote s
+        | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree; notes = {s.notes with cursor = 0} }
+        | { asChar = c } when isPrintable c -> insertCharAtCursor c s
+        | { asEnum = ConsoleKey.Backspace } -> backspaceAtCursor s
         | _ -> s
     | Normal ->
         s
