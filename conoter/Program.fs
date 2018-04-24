@@ -6,49 +6,56 @@ open System.IO
 open System.Linq
 open Screen
 open Notes
+open System.ComponentModel.Design.Serialization
 
 type EditorMode = Text | Tree | Normal
 
-type State = {buffer: list<String>; notes: Notes; shouldQuit: bool; mode: EditorMode}
-let initState = {buffer = []; notes = initNotes; shouldQuit = false; mode = Tree}
+type State = {buffer: list<String>; root: Item; shouldQuit: bool; mode: EditorMode}
+let initState = {buffer = []; root = initNotes; shouldQuit = false; mode = Tree}
 
 type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool; withShift: bool}
 
 // returns (screen, cursorPos)
-let renderNotes (notes: Notes) (screen, pos) =
-    //let rec getCursorPosFromIndex (startX, startY as noteStartPos) index =
-        
-    let rec go strings isCurrent (screen, (startX, startY as pos)) = 
-        match strings with
+let renderNotes root (screen, pos) =
+    let rec go items isCurrent (screen, (startX, startY as pos)) = 
+        match items with
         | [] -> (screen, pos)
-        | note::xs -> 
+        | i::xs -> 
             let prefix = if isCurrent then "==>" else " - "
-            let renderedText = prefix + note
+            let renderedText = prefix + i.content
             let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor renderedText
             if isCurrent then
                 do Console.SetCursorPosition (walkStringPositions (renderedText + " ") pos
-                                                |> Seq.tryFind (fun (i, _) -> i = notes.cursor + prefix.Length) 
+                                                |> Seq.tryFind (fun (ix, _) -> ix = i.cursor + prefix.Length) 
                                                 |> Option.defaultValue (0, (startX + prefix.Length, startY))
                                                 |> snd)
             go xs false (s, (0, y + 1))
-    
+
+    let currentItem = dig root
+    let selectedChildAsList = match currentItem.current with
+                              | Some(i) -> [i]
+                              | None -> []
+
     (screen, pos) 
-        |> go (List.rev notes.aboves) false
-        |> go [notes.current] true 
-        |> go notes.belows false 
+        |> go (List.rev currentItem.aboves) false
+        |> go selectedChildAsList true 
+        |> go currentItem.belows false 
         |> fst
  
-let insertCharAtCursor (c: char) (s: State) =
-    { s with notes = {s.notes with current = s.notes.current.Insert(s.notes.cursor, c.ToString()); cursor = s.notes.cursor + 1 } }
+let insertCharAtCursor (c: char) =
+    digModify (fun i -> {i with content = i.content.Insert(i.cursor, c.ToString()); cursor = i.cursor + 1 })
 
-let backspaceAtCursor (s: State) =
-    if s.notes.current.Length > 0 && s.notes.cursor > 0 then
-        { s with notes = {s.notes with current = s.notes.current.Remove(s.notes.cursor - 1, 1); cursor = s.notes.cursor - 1  } }
-    else
-        s
+let backspaceAtCursor =
+    let f (i: Item) = 
+        if i.content.Length > 0 && i.cursor > 0 then
+            { i with content = i.content.Remove(i.cursor - 1, 1); cursor = i.cursor - 1  } 
+        else
+            i
+    
+    digModify f
 
-let moveCursorByChar distance ({notes=n} as s) =
-    { s with notes = {n with cursor = Math.Clamp(n.cursor + distance, 0, n.current.Length) } }
+let moveCursorByChar distance =
+    digModify (fun i -> {i with cursor = Math.Clamp(i.cursor + distance, 0, i.content.Length) }) 
 
 let processKey ({buffer=b} as s: State) key =
     match s.mode with
@@ -56,13 +63,13 @@ let processKey ({buffer=b} as s: State) key =
         match key with
         | { withCtrl = true } | { withAlt = true } -> s
         | { asChar = 'q' } -> { s with shouldQuit = true }
-        | { asChar = 'j' } -> { s with notes = selectNext s.notes }
-        | { asChar = 'k' } -> { s with notes = selectPrevious s.notes }
-        | { asChar = 'a' } -> { s with mode = Text; notes = { s.notes with cursor = s.notes.current.Length }}
-        | { asChar = 'i' } -> { s with mode = Text; notes = { s.notes with cursor = 0 }}
-        | { asChar = 'o' } -> { s with notes = insertBelow s.notes; mode = Text }
-        | { asChar = 'O' } -> { s with notes = insertAbove s.notes; mode = Text }
-        | { asChar = 'd' } -> { s with notes = deleteCurrent s.notes }
+        | { asChar = 'j' } -> { s with root = digModifyParent selectNext s.root }
+        | { asChar = 'k' } -> { s with root = digModifyParent selectPrevious s.root }
+        | { asChar = 'a' } -> { s with mode = Text; root = digModify (fun i -> {i with cursor = i.content.Length}) s.root}
+        | { asChar = 'i' } -> { s with mode = Text; root = digModify (fun i -> {i with cursor = 0}) s.root}
+        | { asChar = 'o' } -> { s with root = digModifyParent insertBelow s.root; mode = Text }
+        | { asChar = 'O' } -> { s with root = digModifyParent insertAbove s.root; mode = Text }
+        | { asChar = 'd' } -> { s with root = digModifyParent deleteCurrent s.root }
         | { asChar = 'e' } -> { s with mode = Normal }
         | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
         | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
@@ -70,14 +77,14 @@ let processKey ({buffer=b} as s: State) key =
     | Text ->
         match key with
         | { asEnum = ConsoleKey.Escape } -> { s with mode = Normal }
-        | { asChar = c } when isPrintable c -> insertCharAtCursor c s
-        | { asEnum = ConsoleKey.Backspace } -> backspaceAtCursor s
+        | { asChar = c } when isPrintable c -> {s with root = insertCharAtCursor c s.root}
+        | { asEnum = ConsoleKey.Backspace } -> {s with root = backspaceAtCursor s.root}
         | _ -> s
     | Normal ->
         match key with
-        | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree; notes = {s.notes with cursor = 0} }
-        | { asChar = 'l' } -> moveCursorByChar 1 s
-        | { asChar = 'h' } -> moveCursorByChar -1 s
+        | { asEnum = ConsoleKey.Escape } -> { s with mode = Tree; root = digModify (fun i -> {i with cursor = 0}) s.root }
+        | { asChar = 'l' } -> {s with root = moveCursorByChar 1 s.root}
+        | { asChar = 'h' } -> {s with root = moveCursorByChar -1 s.root}
         | { asChar = 'i' } -> { s with mode = Text }
         | _ -> s
 
@@ -105,7 +112,7 @@ let configureCursor state screen =
 
 let render state =
     (emptyScreen, (0, 0))
-        |> renderNotes state.notes 
+        |> renderNotes state.root 
         |> renderStatusLine state
         |> configureCursor state
 
