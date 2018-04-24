@@ -110,8 +110,15 @@ let configureCursor state screen =
     Console.CursorVisible <- state.mode <> Tree
     screen
 
+let renderBreadcrumbs item (screen, startPos) =
+    let trail = digMap (fun i -> i.content) item
+    let text = List.reduce (fun a b -> sprintf "[%s] > %s" a b) (List.truncate (trail.Length - 1) trail)
+    let (screen, (_, y)) = putString screen startPos ConsoleColor.White ConsoleColor.DarkBlue text
+    (screen, (0, y + 1))
+
 let render state =
     (emptyScreen, (0, 0))
+        |> renderBreadcrumbs state.root
         |> renderNotes state.root 
         |> renderStatusLine state
         |> configureCursor state
