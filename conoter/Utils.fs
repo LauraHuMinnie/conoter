@@ -1,5 +1,8 @@
 ﻿module Utils 
 
+let inline (*) (a: string) (b: int) = 
+    String.replicate b a
+
 module Dict =
     open System.Collections.Generic
 
