@@ -67,7 +67,6 @@ let rec digModify f (item: Item) =
     | None -> f item
 
 let rec digModifyParent f (item: Item) =
-    Trace.TraceInformation("dmp: " + item.content)
     match item.current with
     | Some(child) ->
         match child.current with
@@ -75,3 +74,15 @@ let rec digModifyParent f (item: Item) =
         | None -> f item
     | None -> 
         item
+
+let rec navigateOut root =
+    digModifyParent (fun i -> {i with current = None; belows = i.current.Value :: i.belows}) root
+
+let rec navigateIn =
+    let f item = 
+        let (cur, belows) = match List.tryHead item.belows with
+                            | Some(_) as newCur -> (newCur, List.tail item.belows)
+                            | None -> (None, item.belows)
+        { item with current = cur; belows = belows }
+
+    digModify f

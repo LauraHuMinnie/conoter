@@ -70,8 +70,8 @@ let processKey ({buffer=b} as s: State) key =
         | { asChar = 'o' } -> { s with root = digModifyParent insertBelow s.root; mode = Text }
         | { asChar = 'O' } -> { s with root = digModifyParent insertAbove s.root; mode = Text }
         | { asChar = 'd' } -> { s with root = digModifyParent deleteCurrent s.root }
-        | { asChar = 'h' } -> { s with root = digModifyParent (fun i -> {i with current = None; belows = i.current.Value :: i.belows}) s.root}
-        | { asChar = 'l' } -> { s with root = digModify (fun i -> {i with current = List.tryHead i.belows; belows = List.tail i.belows}) s.root}
+        | { asChar = 'h' } -> { s with root = navigateOut s.root }
+        | { asChar = 'l' } -> { s with root = navigateIn s.root }
         | { asChar = 'e' } -> { s with mode = Normal }
         | { asChar = 's' } -> { s with root = digModify (fun i -> {i with current = Some(newItem "")} ) s.root}
         | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
@@ -115,7 +115,7 @@ let configureCursor state screen =
 
 let renderBreadcrumbs item (screen, startPos) =
     let trail = digMap (fun i -> i.content) item
-    let text = List.reduce (fun a b -> sprintf "[%s] > %s" a b) (List.truncate (trail.Length - 1) trail)
+    let text = List.reduce (fun a b -> sprintf "%s > %s" a b) (List.truncate (trail.Length - 1) trail)
     let (screen, (_, y)) = putString screen startPos ConsoleColor.White ConsoleColor.DarkBlue text
     (screen, (0, y + 1))
 
