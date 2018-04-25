@@ -70,7 +70,10 @@ let processKey ({buffer=b} as s: State) key =
         | { asChar = 'o' } -> { s with root = digModifyParent insertBelow s.root; mode = Text }
         | { asChar = 'O' } -> { s with root = digModifyParent insertAbove s.root; mode = Text }
         | { asChar = 'd' } -> { s with root = digModifyParent deleteCurrent s.root }
+        | { asChar = 'h' } -> { s with root = digModifyParent (fun i -> {i with current = None; belows = i.current.Value :: i.belows}) s.root}
+        | { asChar = 'l' } -> { s with root = digModify (fun i -> {i with current = List.tryHead i.belows; belows = List.tail i.belows}) s.root}
         | { asChar = 'e' } -> { s with mode = Normal }
+        | { asChar = 's' } -> { s with root = digModify (fun i -> {i with current = Some(newItem "")} ) s.root}
         | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
         | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
         | c -> { s with buffer = c.asChar.ToString() :: b }
