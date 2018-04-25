@@ -46,7 +46,7 @@ let deleteCurrent notes =
     | _ -> notes
 
 let hasChildren item =
-    not <| (List.isEmpty item.aboves) && (List.isEmpty item.belows) && item.current.IsNone
+    not ((List.isEmpty item.aboves) && (List.isEmpty item.belows) && item.current.IsNone)
 
 let rec dig (item: Item) =
     let rec go i (p: Item option) =

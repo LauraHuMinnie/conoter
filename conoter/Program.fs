@@ -21,7 +21,8 @@ let renderNotes root (screen, pos) =
         match items with
         | [] -> (screen, pos)
         | i::xs -> 
-            let prefix = if isCurrent then "==>" else " - "
+            let selectionChar = if hasChildren i then "+" else "-"
+            let prefix = if isCurrent then selectionChar + selectionChar + ">" else " " + selectionChar + " "
             let renderedText = prefix + i.content
             let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor renderedText
             if isCurrent then
