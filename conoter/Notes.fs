@@ -39,11 +39,11 @@ let insertBelow notes =
     | None ->
         { notes with current = Some(newItem "") }
 
-let deleteCurrent notes = 
-    match (List.tryHead notes.aboves, List.tryHead notes.belows) with
-    | (Some(n), None) | (Some(n), Some(_)) -> {notes with aboves = List.tail notes.aboves; current = Some(n)}
-    | (None, Some(n)) -> {notes with belows = List.tail notes.belows; current = Some(n)}
-    | _ -> notes
+let deleteCurrent i = 
+    match (List.tryHead i.aboves, List.tryHead i.belows) with
+    | (Some(n), None) | (Some(n), Some(_)) -> {i with aboves = List.tail i.aboves; current = Some(n)}
+    | (None, Some(n)) -> {i with belows = List.tail i.belows; current = Some(n)}
+    | (None, None) -> {i with current = None}
 
 let hasChildren item =
     not ((List.isEmpty item.aboves) && (List.isEmpty item.belows) && item.current.IsNone)
