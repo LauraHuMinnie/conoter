@@ -25,7 +25,7 @@ let selectPrevious notes =
         {notes with current = newCur; aboves = List.tail notes.aboves;  belows = oldCur::notes.belows; cursor = 0}
     | _ -> notes
 
-let initNotes = {content = "Parent!"; current = Some(newItem (new string('a', 100))); aboves = [newItem "One above!"]; belows = [newItem "One below!"]; cursor = 0}
+let initNotes = {content = "Notes"; current = Some(newItem (new string('a', 100))); aboves = [newItem "One above!"]; belows = [newItem "One below!"]; cursor = 0}
 
 let insertAbove notes =
     match notes.current with
@@ -82,9 +82,9 @@ let rec navigateOut root =
 
 let rec navigateIn =
     let f item = 
-        let (cur, belows) = match List.tryHead item.belows with
-                            | Some(_) as newCur -> (newCur, List.tail item.belows)
-                            | None -> (None, item.belows)
+        let cur, belows = match List.tryHead item.belows with
+                          | Some(_) as newCur -> newCur, List.tail item.belows
+                          | None -> None, item.belows
         { item with current = cur; belows = belows }
 
     digModify f
@@ -116,8 +116,8 @@ let rec deserialize (s: string) =
                 let nextM = m.TypedNextMatch()
                 let startIndex = m.Index + m.Length
                 if nextM.Success 
-                then yield (int m.Depth.Value, s.Substring(startIndex, nextM.Index - startIndex).Trim())
-                else yield (int m.Depth.Value, s.Substring(startIndex).Trim())
+                then yield int m.Depth.Value, s.Substring(startIndex, nextM.Index - startIndex).Trim()
+                else yield int m.Depth.Value, s.Substring(startIndex).Trim()
                 shouldContinue <- nextM.Success
                 m <- nextM
         }
@@ -135,7 +135,7 @@ let rec deserialize (s: string) =
         
         
     let parseItem ls =
-        let (_, content) = List.head ls
+        let _, content = List.head ls
         {newItem content with belows = parseChildren <| List.tail ls }
     
     iterateEntries s |> Seq.toList |> parseItem

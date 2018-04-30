@@ -18,12 +18,12 @@ type KeyPress = {asChar: char; asEnum: ConsoleKey; withAlt: bool; withCtrl: bool
 let renderNotes root (screen, pos) =
     let rec go items isCurrent (screen, (startX, startY as pos)) = 
         match items with
-        | [] -> (screen, pos)
+        | [] -> screen, pos
         | i::xs -> 
             let selectionChar = if hasChildren i then "+" else "-"
             let prefix = if isCurrent then (String.replicate 2 selectionChar) + ">" else " " + selectionChar + " "
             let renderedText = prefix + i.content
-            let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor renderedText
+            let s, (_, y) = putString screen pos defaultForegroundColor defaultBackgroundColor renderedText
             if isCurrent then
                 do Console.SetCursorPosition (walkStringPositions (renderedText + " ") pos
                                                 |> Seq.tryFind (fun (ix, _) -> ix = i.cursor + prefix.Length) 
@@ -120,8 +120,8 @@ let configureCursor state screen =
 let renderBreadcrumbs item (screen, startPos) =
     let trail = digMap (fun i -> i.content) item
     let text = List.reduce (fun a b -> sprintf "%s > %s" a b) (List.truncate (trail.Length - 1) trail)
-    let (screen, (_, y)) = putString screen startPos ConsoleColor.White ConsoleColor.DarkBlue text
-    (screen, (0, y + 1))
+    let screen, (_, y) = putString screen startPos ConsoleColor.White ConsoleColor.DarkBlue text
+    screen, (0, y + 1)
 
 let render state =
     (emptyScreen, (0, 0))

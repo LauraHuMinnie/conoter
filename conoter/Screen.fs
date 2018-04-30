@@ -16,19 +16,19 @@ let defaultCell = {glyph = ' '; foreground = defaultForegroundColor; background 
 
 let walkStringPositions (s: string) (startX, startY) =
     seq {
-        let mutable pos = (startX - 1, startY)
+        let mutable pos = startX - 1, startY
         let mutable shouldEmit = false
         for i in 0 .. s.Length - 1 do
-            let (x, y) = pos
+            let x, y = pos
             pos <- match s.[i] with
                    | '\n' | '\r' -> 
                         shouldEmit <- false
-                        (startX - 1, y + 1)
+                        startX - 1, y + 1
                    | _ -> 
                         shouldEmit <- true
                         if x + 1 >= Console.BufferWidth 
-                        then (startX, y + 1)
-                        else (x + 1, y)
+                        then startX, y + 1
+                        else x + 1, y
             if shouldEmit then
                 yield (i, pos)
     }
@@ -81,9 +81,9 @@ let diff (prev: Screen) next =
     let includeInDiff pos =
         if isInBuffer pos then
             match (Map.tryFind pos prev, Map.tryFind pos next) with
-            | (Some(c1), Some(c2)) when c1 <> c2 -> Some((pos, c2))
-            | (None, Some(c2)) -> Some((pos, c2))
-            | (Some(_), None) -> Some((pos, defaultCell))
+            | (Some(c1), Some(c2)) when c1 <> c2 -> Some(pos, c2)
+            | (None, Some(c2)) -> Some(pos, c2)
+            | (Some(_), None) -> Some(pos, defaultCell)
             | _ -> None
         else
             None
@@ -109,7 +109,7 @@ let needsFlush (pos, a) (nextPos, b) =
     a.foreground = b.foreground && a.background = b.background && (nextPosition pos) = nextPos
 
 let renderChunk (outStream: StreamWriter) chunk =
-    let (startPos, startCell) = List.head chunk
+    let startPos, startCell = List.head chunk
     Console.ForegroundColor <- startCell.foreground
     Console.BackgroundColor <- startCell.background
 
