@@ -1,6 +1,8 @@
 ﻿module Notes
 
 open System.Diagnostics
+open System.Text.RegularExpressions
+open FSharp.Text.RegexProvider
 
 type Note = string
 // if there is a child note which is selected, current is Some(n).
@@ -86,3 +88,54 @@ let rec navigateIn =
         { item with current = cur; belows = belows }
 
     digModify f
+
+let children item =
+    [ 
+        for i in List.rev item.aboves -> i
+        if item.current.IsSome then yield item.current.Value
+        for i in item.belows -> i
+    ]
+        
+let rec serialize item =
+    let rec go level i =
+       let rest = children i |> List.map (go (level + 1)) |> List.fold (+) ""
+       "\n{text@" + level.ToString() + "}-\n" + i.content + "\n" + rest
+    
+    go 0 item
+
+type RecordStartRegex = Regex< @"\n{(?<NoteType>[a-z]+)@(?<Depth>\d+)}-\n" >
+
+let rec deserialize (s: string) =
+    // read "\n{text@level}-\n" followed by its content.
+    // TODO: Make this prettier--very ugly implementation here just to get something working.
+    let iterateEntries str = 
+        seq {    
+            let mutable shouldContinue = true
+            let mutable m = RecordStartRegex().TypedMatch(s)
+            while shouldContinue do
+                let nextM = m.TypedNextMatch()
+                let startIndex = m.Index + m.Length
+                if nextM.Success 
+                then yield (int m.Depth.Value, s.Substring(startIndex, nextM.Index - startIndex).Trim())
+                else yield (int m.Depth.Value, s.Substring(startIndex).Trim())
+                shouldContinue <- nextM.Success
+                m <- nextM
+        }
+    
+    // takes a list of nodes beneath some depth level
+    // returns a list of items that are siblings, with their children populated.
+    let rec parseChildren ls =
+        match ls with
+        | [] -> []
+        | (depth, content)::rest ->
+            let itemsBeneath = rest |> List.takeWhile (fun (nextDepth, _) -> nextDepth > depth) 
+            match List.skip (List.length itemsBeneath) ls with
+            | [] -> []
+            | _::rest -> {newItem content with belows = parseChildren itemsBeneath }::parseChildren rest
+        
+        
+    let parseItem ls =
+        let (_, content) = List.head ls
+        {newItem content with belows = parseChildren <| List.tail ls }
+    
+    iterateEntries s |> Seq.toList |> parseItem

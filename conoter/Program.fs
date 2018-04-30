@@ -1,12 +1,11 @@
 ﻿open System
 open System.Collections.Generic
-open Utils
 open System.Diagnostics
 open System.IO
 open System.Linq
 open Screen
 open Notes
-open System.ComponentModel.Design.Serialization
+open Utils
 
 type EditorMode = Text | Tree | Normal
 
@@ -22,7 +21,7 @@ let renderNotes root (screen, pos) =
         | [] -> (screen, pos)
         | i::xs -> 
             let selectionChar = if hasChildren i then "+" else "-"
-            let prefix = if isCurrent then selectionChar * 2 + ">" else " " + selectionChar + " "
+            let prefix = if isCurrent then (String.replicate 2 selectionChar) + ">" else " " + selectionChar + " "
             let renderedText = prefix + i.content
             let (s, (_, y)) = putString screen pos defaultForegroundColor defaultBackgroundColor renderedText
             if isCurrent then
@@ -75,6 +74,10 @@ let processKey ({buffer=b} as s: State) key =
         | { asChar = 'l' } -> { s with root = navigateIn s.root }
         | { asChar = 'e' } -> { s with mode = Normal }
         | { asChar = 's' } -> { s with root = digModify (fun i -> {i with current = Some(newItem "")} ) s.root}
+        | { asChar = 'S' } -> 
+            File.WriteAllText("test.notes", serialize s.root)
+            s
+        | { asChar = 'L' } -> { s with root = File.ReadAllText("test.notes") |> deserialize |> selectNext }
         | { asEnum = ConsoleKey.Escape } -> { s with buffer = [] }
         | { asEnum = ConsoleKey.Z; withCtrl = true } when List.isEmpty b |> not -> { s with buffer = List.tail b}
         | c -> { s with buffer = c.asChar.ToString() :: b }

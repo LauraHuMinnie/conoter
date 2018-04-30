@@ -1,7 +1,6 @@
 ﻿module Utils 
 
-let inline (*) (a: string) (b: int) = 
-    String.replicate b a
+let swap (a, b) = (b, a)
 
 module Dict =
     open System.Collections.Generic
@@ -19,4 +18,3 @@ module Dict =
 
     let iter<'TKey, 'TValue> action (d: Dictionary<'TKey, 'TValue>) =
         d.AsTuples |> Seq.iter action
-

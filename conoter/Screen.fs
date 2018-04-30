@@ -3,6 +3,7 @@
 open System
 open System.IO
 open System.Diagnostics
+open Utils
 
 type Cell = {glyph: char; foreground: ConsoleColor; background: ConsoleColor}
 
@@ -94,9 +95,8 @@ let diff (prev: Screen) next =
         |> Map.ofSeq
 
 let delinearize index =
-    let (y, x) = Math.DivRem(index, Console.BufferWidth)
-    (x, y)
-
+     swap <| Math.DivRem(index, Console.BufferWidth) 
+        
 let linearize (x, y) =
     x + y * Console.BufferWidth
 
