@@ -2,6 +2,11 @@
 
 let swap (a, b) = (b, a)
 
+let clamp min max value =
+    if value < min then min
+    else if value > max then max
+    else value
+
 module Dict =
     open System.Collections.Generic
 

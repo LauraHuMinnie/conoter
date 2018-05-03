@@ -1,8 +1,5 @@
 ﻿open System
-open System.Collections.Generic
-open System.Diagnostics
 open System.IO
-open System.Linq
 open Screen
 open Notes
 open Utils
@@ -55,7 +52,7 @@ let backspaceAtCursor =
     digModify f
 
 let moveCursorByChar distance =
-    digModify (fun i -> {i with cursor = Math.Clamp(i.cursor + distance, 0, i.content.Length) }) 
+    digModify (fun i -> {i with cursor = clamp 0 i.content.Length (i.cursor + distance) }) 
 
 let processKey ({buffer=b} as s: State) key =
     match s.mode with
@@ -131,7 +128,7 @@ let render state =
         |> configureCursor state
 
 [<EntryPoint>]
-let main argv =
+let main _ =
     use out = new StreamWriter(Console.OpenStandardOutput())
     let mutable lastBufferSize = (Console.BufferWidth, Console.BufferHeight)
     let rec mainLoop screen state =

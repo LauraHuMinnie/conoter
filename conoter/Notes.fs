@@ -2,7 +2,6 @@
 
 open System.Diagnostics
 open System.Text.RegularExpressions
-open FSharp.Text.RegexProvider
 
 type Note = string
 // if there is a child note which is selected, current is Some(n).
@@ -103,7 +102,7 @@ let rec serialize item =
     
     go 0 item
 
-type RecordStartRegex = Regex< @"\n{(?<NoteType>[a-z]+)@(?<Depth>\d+)}-\n" >
+let recordStartRegex = new Regex(@"\n{(?<NoteType>[a-z]+)@(?<Depth>\d+)}-\n")
 
 let rec deserialize (s: string) =
     // read "\n{text@level}-\n" followed by its content.
@@ -111,13 +110,14 @@ let rec deserialize (s: string) =
     let iterateEntries str = 
         seq {    
             let mutable shouldContinue = true
-            let mutable m = RecordStartRegex().TypedMatch(s)
+            let mutable m = recordStartRegex.Match(str)
             while shouldContinue do
-                let nextM = m.TypedNextMatch()
+                let nextM = m.NextMatch()
                 let startIndex = m.Index + m.Length
+                let depth = int m.Groups.["Depth"].Value
                 if nextM.Success 
-                then yield int m.Depth.Value, s.Substring(startIndex, nextM.Index - startIndex).Trim()
-                else yield int m.Depth.Value, s.Substring(startIndex).Trim()
+                then yield depth, s.Substring(startIndex, nextM.Index - startIndex).Trim()
+                else yield depth, s.Substring(startIndex).Trim()
                 shouldContinue <- nextM.Success
                 m <- nextM
         }
@@ -132,7 +132,6 @@ let rec deserialize (s: string) =
             match List.skip (List.length itemsBeneath) ls with
             | [] -> []
             | _::rest -> {newItem content with belows = parseChildren itemsBeneath }::parseChildren rest
-        
         
     let parseItem ls =
         let _, content = List.head ls
